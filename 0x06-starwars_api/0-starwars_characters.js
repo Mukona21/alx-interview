@@ -1,25 +1,39 @@
-#!/usr/bin/node
 const request = require('request');
-const API_URL = 'https://swapi-api.hbtn.io/api';
 
-if (process.argv.length > 2) {
-  request(`${API_URL}/films/${process.argv[2]}/`, (err, _, body) => {
-    if (err) {
-      console.log(err);
+const movieId = process.argv[2];
+
+const apiUrl = `https://swapi.dev/api/films/${movieId}/`;
+
+request(apiUrl, (error, response, body) => {
+    if (error) {
+        console.error('Error:', error);
+    } else if (response.statusCode !== 200) {
+        console.error('Status:', response.statusCode);
+    } else {
+        const filmData = JSON.parse(body);
+        const charactersUrls = filmData.characters;
+
+        // Function to fetch character names from character URLs
+        const getCharacterName = (url) => {
+            return new Promise((resolve, reject) => {
+                request(url, (error, response, body) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        const characterData = JSON.parse(body);
+                        resolve(characterData.name);
+                    }
+                });
+            });
+        };
+
+        // Promise.all to fetch names of all characters
+        Promise.all(charactersUrls.map(url => getCharacterName(url)))
+            .then(characterNames => {
+                characterNames.forEach(name => console.log(name));
+            })
+            .catch(error => {
+                console.error('Error fetching character names:', error);
+            });
     }
-    const charactersURL = JSON.parse(body).characters;
-    const charactersName = charactersURL.map(
-      url => new Promise((resolve, reject) => {
-        request(url, (promiseErr, __, charactersReqBody) => {
-          if (promiseErr) {
-            reject(promiseErr);
-          }
-          resolve(JSON.parse(charactersReqBody).name);
-        });
-      }));
-
-    Promise.all(charactersName)
-      .then(names => console.log(names.join('\n')))
-      .catch(allErr => console.log(allErr));
-  });
-}
+});
